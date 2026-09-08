@@ -1,36 +1,106 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🌍 Global Kindness Map
 
-## Getting Started
+A live, open-source world map built from real acts of kindness — dropped
+by people everywhere. Anyone can add a pin describing something kind they
+did, received, or witnessed; each story gets its own shareable page so it
+can be passed on.
 
-First, run the development server:
+No accounts. No algorithm curating what you see. Just a growing record of
+good things happening, everywhere, at once.
+
+## Stack
+
+- [Next.js](https://nextjs.org) (App Router) + TypeScript
+- [Tailwind CSS](https://tailwindcss.com) for styling
+- [Leaflet](https://leafletjs.com) / [react-leaflet](https://react-leaflet.js.org) for the map (OpenStreetMap tiles — no API key needed)
+- [Supabase](https://supabase.com) (Postgres) for the database — free tier
+- Deploy target: [Vercel](https://vercel.com) — free tier
+
+Chosen deliberately to keep this runnable at **zero cost** for a
+side-project scale audience.
+
+## Getting started
+
+```bash
+git clone <your-fork-url>
+cd kindness-map
+npm install
+cp .env.example .env.local
+```
+
+### 1. Set up Supabase (free)
+
+1. Create a project at [supabase.com](https://supabase.com).
+2. Open the SQL editor and run [`supabase/schema.sql`](./supabase/schema.sql).
+3. Copy your Project URL, anon key, and service role key from
+   **Project Settings → API** into `.env.local`.
+
+### 2. Run locally
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit [http://localhost:3000](http://localhost:3000). The map will be
+empty until you add your first pin via **+ Add kindness**.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Deploy (free, on Vercel)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Push this repo to your own GitHub account.
+2. Import it at [vercel.com/new](https://vercel.com/new).
+3. Add the same environment variables from `.env.local` in the Vercel
+   project settings.
+4. Deploy. Set `NEXT_PUBLIC_SITE_URL` to your real deployed URL afterwards
+   (needed for correct share links / Open Graph images).
 
-## Learn More
+### 4. Ads (optional)
 
-To learn more about Next.js, take a look at the following resources:
+Once your live site has enough content/traffic to be approved for
+[Google AdSense](https://www.google.com/adsense/), set
+`NEXT_PUBLIC_ADSENSE_CLIENT_ID` and ad slots (see
+[`src/components/AdSlot.tsx`](./src/components/AdSlot.tsx)) will activate
+automatically.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/
+  app/
+    page.tsx                 → home page (map + feed)
+    add/page.tsx              → submission form
+    kindness/[id]/page.tsx    → shareable individual pin page (+ dynamic OG image)
+    api/pins/route.ts         → list (GET) + create (POST) pins
+    api/pins/[id]/route.ts    → fetch a single pin
+  components/                → map, feed, form, share button components
+  lib/
+    supabase/                → browser / server / admin Supabase clients
+    moderation.ts             → validation, profanity filter, rate limiting
+  types/pin.ts                → shared types + category list
+supabase/schema.sql            → database schema + RLS policies
+```
 
-## Deploy on Vercel
+## How writes are protected
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The anon/browser Supabase key can only **read** approved pins (enforced by
+Row Level Security — see `supabase/schema.sql`). All new pins are created
+through the `/api/pins` server route, which:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Rate-limits by IP (in-memory — see note below).
+2. Validates coordinates, category, and message length.
+3. Runs a basic profanity filter and blocks links.
+4. Writes using the Supabase **service role** key, server-side only.
+
+This keeps moderation logic in one place instead of relying on database
+policies to enforce content rules.
+
+## Contributing
+
+Contributions are very welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md)
+for setup notes and a list of good first issues (better spam detection,
+marker clustering for dense areas, i18n, a moderation dashboard, and
+more).
+
+## License
+
+[MIT](./LICENSE) — do whatever you like with this, attribution
+appreciated but not required.
