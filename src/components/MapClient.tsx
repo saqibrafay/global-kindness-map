@@ -7,14 +7,18 @@ import type { KindnessPin } from "@/types/pin";
 const WorldMap = dynamic(() => import("./WorldMap"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-[600px] w-full items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-700">
-      Loading the kindness map…
+    <div className="flex h-full w-full items-center justify-center bg-ink-2">
+      <div className="flex flex-col items-center gap-3">
+        <span className="size-3 animate-ping rounded-full bg-glow" />
+        <span className="eyebrow">Lighting the map…</span>
+      </div>
     </div>
   ),
 });
 
 export default function MapClient(props: {
   pins: KindnessPin[];
+  focusPin?: KindnessPin | null;
   height?: string;
   center?: [number, number];
   zoom?: number;

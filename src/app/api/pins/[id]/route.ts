@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
-import type { KindnessPin } from "@/types/pin";
+import { getPin } from "@/lib/pins/store";
+import { isValidPinId } from "@/lib/moderation";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(
   _request: NextRequest,
@@ -8,27 +10,14 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  let supabase;
-  try {
-    supabase = getSupabaseServerClient();
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Server is not configured yet — see .env.example." },
-      { status: 503 }
-    );
-  }
-
-  const { data, error } = await supabase
-    .from("kindness_pins")
-    .select("*")
-    .eq("id", id)
-    .eq("approved", true)
-    .single();
-
-  if (error || !data) {
+  if (!isValidPinId(id)) {
     return NextResponse.json({ error: "Kindness pin not found." }, { status: 404 });
   }
 
-  return NextResponse.json({ pin: data as KindnessPin });
+  const pin = await getPin(id);
+  if (!pin) {
+    return NextResponse.json({ error: "Kindness pin not found." }, { status: 404 });
+  }
+
+  return NextResponse.json({ pin });
 }

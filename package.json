@@ -29,5 +29,15 @@
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",
     "typescript": "^5"
-  }
+  },
+  "description": "A live, open-source world map of real acts of kindness.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saqibrafay/global-kindness-map.git"
+  },
+  "bugs": {
+    "url": "https://github.com/saqibrafay/global-kindness-map/issues"
+  },
+  "homepage": "https://github.com/saqibrafay/global-kindness-map#readme",
+  "license": "MIT"
 }

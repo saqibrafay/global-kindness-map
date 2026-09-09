@@ -23,6 +23,10 @@ create table if not exists public.kindness_pins (
     )
   ),
   message text not null check (char_length(message) between 10 and 500),
+  -- ISO 3166-1 alpha-2 (lowercase), resolved from the coordinates when the
+  -- pin is created. Nullable: geocoding is best-effort and must never block
+  -- a submission. Used by the /atlas country breakdown.
+  country_code text check (country_code is null or country_code ~ '^[a-z]{2}$'),
   chain_parent_id uuid references public.kindness_pins(id) on delete set null,
   approved boolean not null default true
 );
@@ -32,6 +36,15 @@ create index if not exists kindness_pins_approved_created_idx
 
 create index if not exists kindness_pins_location_idx
   on public.kindness_pins (latitude, longitude);
+
+-- Runs before the country index so this file is also a safe upgrade for a
+-- database created before country_code existed. (Indexing a column that
+-- isn't there yet would abort the script.)
+alter table public.kindness_pins
+  add column if not exists country_code text;
+
+create index if not exists kindness_pins_country_idx
+  on public.kindness_pins (country_code);
 
 alter table public.kindness_pins enable row level security;
 

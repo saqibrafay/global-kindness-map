@@ -1,37 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { validateNewPin, checkRateLimit } from "@/lib/moderation";
-import type { KindnessPin, NewKindnessPin } from "@/types/pin";
+import { revalidatePath } from "next/cache";
+import {
+  validateNewPin,
+  screenNewPin,
+  checkRateLimit,
+  recordSubmission,
+} from "@/lib/moderation";
+import { createPin, listPins, pinExists } from "@/lib/pins/store";
+import type { NewKindnessPin } from "@/types/pin";
 
-// Cap how many pins we return in one go. Good first issue: real pagination.
-const MAX_PINS_RETURNED = 1000;
+// Always read through to the store — the map is the point of this site.
+export const dynamic = "force-dynamic";
 
 export async function GET() {
-  let supabase;
-  try {
-    supabase = getSupabaseServerClient();
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Server is not configured yet — see .env.example." },
-      { status: 503 }
-    );
-  }
-
-  const { data, error } = await supabase
-    .from("kindness_pins")
-    .select("*")
-    .eq("approved", true)
-    .order("created_at", { ascending: false })
-    .limit(MAX_PINS_RETURNED);
-
-  if (error) {
-    console.error("Failed to fetch pins:", error);
-    return NextResponse.json({ error: "Failed to load kindness pins." }, { status: 500 });
-  }
-
-  return NextResponse.json({ pins: (data ?? []) as KindnessPin[] });
+  const pins = await listPins();
+  return NextResponse.json({ pins });
 }
 
 export async function POST(request: NextRequest) {
@@ -58,41 +41,48 @@ export async function POST(request: NextRequest) {
     message: body.message,
     category: body.category,
     location_label: body.location_label,
+    chain_parent_id: body.chain_parent_id,
   });
 
   if (!validation.ok) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
 
-  let supabaseAdmin;
-  try {
-    supabaseAdmin = getSupabaseAdminClient();
-  } catch (err) {
-    console.error(err);
+  // Context-aware screening, after the cheap checks have thinned the field.
+  const screening = await screenNewPin(body.message as string);
+  if (!screening.ok) {
+    return NextResponse.json({ error: screening.error }, { status: 400 });
+  }
+
+  // A chain has to point at a story that actually exists, or the link is
+  // dead the moment it is written.
+  const chainParentId = body.chain_parent_id || null;
+  if (chainParentId && !(await pinExists(chainParentId))) {
     return NextResponse.json(
-      { error: "Server is not configured yet — see .env.example." },
-      { status: 503 }
+      { error: "The story you're chaining from no longer exists." },
+      { status: 400 }
     );
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("kindness_pins")
-    .insert({
-      latitude: body.latitude,
-      longitude: body.longitude,
-      location_label: body.location_label?.trim() || null,
-      category: body.category,
-      message: (body.message as string).trim(),
-      chain_parent_id: body.chain_parent_id || null,
-      approved: true,
-    })
-    .select()
-    .single();
+  const result = await createPin({
+    latitude: body.latitude as number,
+    longitude: body.longitude as number,
+    location_label: body.location_label,
+    category: body.category as NewKindnessPin["category"],
+    message: body.message as string,
+    chain_parent_id: chainParentId,
+  });
 
-  if (error) {
-    console.error("Failed to insert pin:", error);
-    return NextResponse.json({ error: "Failed to save your kindness pin." }, { status: 500 });
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({ pin: data as KindnessPin }, { status: 201 });
+  // Only a pin that actually landed spends the posting budget.
+  recordSubmission(ip);
+
+  // The home page caches its pin list — drop it so the new pin shows up
+  // immediately rather than after the revalidate window.
+  revalidatePath("/");
+
+  return NextResponse.json({ pin: result.pin }, { status: 201 });
 }

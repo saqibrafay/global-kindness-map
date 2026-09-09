@@ -1,19 +1,22 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import type { KindnessCategory } from "@/types/pin";
+import type { Coords } from "./LocationPickerMap";
 
 const LocationPickerMap = dynamic(() => import("./LocationPickerMap"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-[350px] w-full items-center justify-center rounded-xl border border-amber-200 bg-amber-50 text-amber-700">
-      Loading map…
+    <div className="flex h-[340px] w-full items-center justify-center rounded-2xl border border-line-soft bg-ink-2 sm:h-[400px]">
+      <span className="eyebrow">Loading map…</span>
     </div>
   ),
 });
 
 export default function LocationPickerClient(props: {
-  value: { lat: number; lng: number } | null;
-  onChange: (coords: { lat: number; lng: number }) => void;
+  value: Coords | null;
+  onChange: (coords: Coords) => void;
+  category: KindnessCategory;
 }) {
   return <LocationPickerMap {...props} />;
 }

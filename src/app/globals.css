@@ -1,36 +1,619 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   Global Kindness Map — "nocturnal cartography"
+   The world at night, lit by small acts. Dark ink ground, warm lamp-light
+   accents, editorial serif display type over a cartographer's mono.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Two themes, one identity.
+
+   Dark ("night") is the house style: the world after dark, lit by small
+   acts. Light ("day") is its counterpart — a warm paper atlas, not a
+   bleached inversion. Every colour below is a raw variable so a single
+   token swap re-themes the whole app, including the values JavaScript
+   hands to Leaflet markers.
+
+   Resolution order: an explicit choice on <html data-theme> always wins;
+   otherwise the OS preference decides.
+   -------------------------------------------------------------------------- */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Ground — warm paper */
+  --ink: #f7f2e9;
+  --ink-2: #fffdf8;
+  --ink-3: #efe7d9;
+  --ink-4: #e3d8c5;
+  --line: #d6cab5;
+  --line-soft: #e7dfd0;
+
+  /* Type — ink on paper */
+  --paper: #17130f;
+  --paper-dim: #4c443a;
+  /* 5.5:1 on the paper ground — "faint" still has to clear WCAG AA,
+     because it carries the mono labels, captions and nav links. */
+  --paper-faint: #6b6153;
+
+  /* Lamp light. --glow is used as *text* on the ground, so in day mode it
+     has to be dark enough to read; the button keeps its own bright pair. */
+  --glow: #9a5f0b;
+  --glow-soft: #c8871f;
+  --glow-deep: #7a4a08;
+  --btn-from: #ffcf7a;
+  --btn-to: #f0a319;
+  --btn-text: #3a2405;
+
+  /* Category lights. Each clears 4.5:1 on the paper ground, because these
+     double as small uppercase labels, not just marker fills — and a darker
+     marker reads better on a light map anyway. */
+  --cat-help_stranger: #9a5f0b;
+  --cat-donation: #b83c22;
+  --cat-environment: #0a7350;
+  --cat-animal: #6f43c9;
+  --cat-emotional_support: #c72f72;
+  --cat-community: #1667b5;
+  --cat-other: #755e15;
+
+  --danger: #b3271a;
+
+  /* Atmosphere: paper wants far less of everything */
+  --wash-opacity: 0.55;
+  --grain-opacity: 0.06;
+  --panel-mix: 88%;
+  --lift-shadow: 0 30px 90px -40px rgb(60 45 20 / 0.35);
+  --map-ground: #e8e0d2;
+  --tile-filter: saturate(0.78) brightness(1.02) contrast(0.95) sepia(0.12);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-}
-
+/* Dark palette, applied both by OS preference and by explicit choice. */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme="light"]) {
+    --ink: #05090c;
+    --ink-2: #0a1017;
+    --ink-3: #111c24;
+    --ink-4: #18252f;
+    --line: #21323d;
+    --line-soft: #17242d;
+
+    --paper: #f3eee4;
+    --paper-dim: #a7b5bf;
+    --paper-faint: #6c7d89;
+
+    --glow: #ffb347;
+    --glow-soft: #ffd9a0;
+    --glow-deep: #b9741c;
+    --btn-from: #ffd9a0;
+    --btn-to: #ffb347;
+    --btn-text: #2a1704;
+
+    --cat-help_stranger: #ffb347;
+    --cat-donation: #ff8a6b;
+    --cat-environment: #6fe3b0;
+    --cat-animal: #c9a7ff;
+    --cat-emotional_support: #ff9ec4;
+    --cat-community: #7cc7ff;
+    --cat-other: #f0e2bd;
+
+    --danger: #ff9e8f;
+
+    --wash-opacity: 1;
+    --grain-opacity: 0.16;
+    --panel-mix: 94%;
+    --lift-shadow: 0 40px 120px -40px rgb(0 0 0 / 0.9);
+    --map-ground: #060d13;
+    /* Standard OSM tiles are a light map; invert and re-hue them into night. */
+    --tile-filter: invert(1) hue-rotate(190deg) brightness(0.66) contrast(1.08)
+      saturate(0.45);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family:
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    Helvetica,
-    Arial,
-    sans-serif;
+:root[data-theme="dark"] {
+  --ink: #05090c;
+  --ink-2: #0a1017;
+  --ink-3: #111c24;
+  --ink-4: #18252f;
+  --line: #21323d;
+  --line-soft: #17242d;
+
+  --paper: #f3eee4;
+  --paper-dim: #a7b5bf;
+  --paper-faint: #6c7d89;
+
+  --glow: #ffb347;
+  --glow-soft: #ffd9a0;
+  --glow-deep: #b9741c;
+  --btn-from: #ffd9a0;
+  --btn-to: #ffb347;
+  --btn-text: #2a1704;
+
+  --cat-help_stranger: #ffb347;
+  --cat-donation: #ff8a6b;
+  --cat-environment: #6fe3b0;
+  --cat-animal: #c9a7ff;
+  --cat-emotional_support: #ff9ec4;
+  --cat-community: #7cc7ff;
+  --cat-other: #f0e2bd;
+
+  --danger: #ff9e8f;
+
+  --wash-opacity: 1;
+  --grain-opacity: 0.16;
+  --panel-mix: 94%;
+  --lift-shadow: 0 40px 120px -40px rgb(0 0 0 / 0.9);
+  --map-ground: #060d13;
+  --tile-filter: invert(1) hue-rotate(190deg) brightness(0.66) contrast(1.08)
+    saturate(0.45);
 }
 
-/* Keep Leaflet's default control styling intact under Tailwind's reset. */
+/*
+ * `@theme inline` (rather than plain `@theme`) so the generated utilities
+ * emit `var(--ink)` instead of baking today's hex in — that is what lets
+ * one token swap above re-theme every `bg-ink` / `text-paper` in the app.
+ */
+@theme inline {
+  --font-display: var(--font-fraunces), "Iowan Old Style", Georgia, serif;
+  --font-body: var(--font-karla), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+
+  --color-paper: var(--paper);
+  --color-paper-dim: var(--paper-dim);
+  --color-paper-faint: var(--paper-faint);
+
+  --color-glow: var(--glow);
+  --color-glow-soft: var(--glow-soft);
+  --color-glow-deep: var(--glow-deep);
+  --color-danger: var(--danger);
+
+  /* Mirrors CATEGORY_COLOR_VARS in src/types/pin.ts */
+  --color-cat-help_stranger: var(--cat-help_stranger);
+  --color-cat-donation: var(--cat-donation);
+  --color-cat-environment: var(--cat-environment);
+  --color-cat-animal: var(--cat-animal);
+  --color-cat-emotional_support: var(--cat-emotional_support);
+  --color-cat-community: var(--cat-community);
+  --color-cat-other: var(--cat-other);
+
+  --radius-panel: 1.25rem;
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /*
+   * These live in @layer base so Tailwind utilities can still override
+   * them. (An unlayered `body { background: ... }` rule beats every
+   * layered utility — that mistake used to blank out the whole theme.)
+   */
+  body {
+    background-color: var(--color-ink);
+    color: var(--color-paper);
+    font-family: var(--font-body);
+    font-feature-settings: "kern", "liga";
+    text-rendering: optimizeLegibility;
+    min-height: 100dvh;
+    position: relative;
+  }
+
+  /* Two low lamps behind everything, so the ground is never flat black. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    opacity: var(--wash-opacity);
+    background:
+      radial-gradient(
+        58rem 40rem at 12% -8%,
+        color-mix(in oklab, var(--color-glow) 13%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        46rem 34rem at 92% 6%,
+        color-mix(in oklab, var(--color-cat-community) 10%, transparent),
+        transparent 68%
+      ),
+      radial-gradient(
+        70rem 50rem at 50% 108%,
+        color-mix(in oklab, var(--color-cat-emotional_support) 7%, transparent),
+        transparent 72%
+      );
+  }
+
+  /* Film grain — keeps large dark areas from banding. */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: var(--grain-opacity);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-variation-settings: "SOFT" 40, "WONK" 1;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-glow) 34%, transparent);
+    color: var(--color-paper);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-glow);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  ::placeholder {
+    color: var(--color-paper-faint);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--color-line);
+    border-radius: 999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--color-ink-4);
+  }
+}
+
+@layer components {
+  /* Frosted panel used for every floating surface over the map. */
+  .panel {
+    background: color-mix(in oklab, var(--color-ink-2) var(--panel-mix), transparent);
+    border: 1px solid var(--color-line-soft);
+    border-radius: var(--radius-panel);
+    box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.03);
+  }
+
+  /* Small-caps mono label — the cartographic voice of the interface. */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--color-paper-faint);
+  }
+
+  .lift {
+    box-shadow: var(--lift-shadow);
+  }
+
+  .hairline {
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--color-line),
+      transparent
+    );
+  }
+
+  /* Primary call to action: a lit lamp. */
+  .btn-glow {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--btn-from), var(--btn-to));
+    color: var(--btn-text);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--btn-to) 55%, transparent),
+      0 10px 30px -8px color-mix(in oklab, var(--btn-to) 55%, transparent);
+    transition:
+      transform 0.25s var(--ease-out-soft),
+      box-shadow 0.25s var(--ease-out-soft),
+      filter 0.25s var(--ease-out-soft);
+  }
+  .btn-glow:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.06);
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--btn-to) 70%, transparent),
+      0 16px 44px -10px color-mix(in oklab, var(--btn-to) 70%, transparent);
+  }
+  .btn-glow:active {
+    transform: translateY(0);
+  }
+  .btn-glow:disabled {
+    opacity: 0.55;
+    filter: grayscale(0.3);
+    transform: none;
+    cursor: not-allowed;
+  }
+
+  /* Secondary: outlined, quiet until touched. */
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-line);
+    color: var(--color-paper-dim);
+    background: color-mix(in oklab, var(--color-ink-3) 55%, transparent);
+    transition:
+      border-color 0.2s var(--ease-out-soft),
+      color 0.2s var(--ease-out-soft),
+      background-color 0.2s var(--ease-out-soft),
+      transform 0.2s var(--ease-out-soft);
+  }
+  .btn-ghost:hover {
+    border-color: color-mix(in oklab, var(--color-glow) 55%, var(--color-line));
+    color: var(--color-paper);
+    transform: translateY(-1px);
+  }
+
+  .field {
+    width: 100%;
+    border-radius: 0.85rem;
+    border: 1px solid var(--color-line);
+    background: var(--color-ink-2);
+    color: var(--color-paper);
+    padding: 0.75rem 0.9rem;
+    font-size: 0.95rem;
+    transition:
+      border-color 0.2s var(--ease-out-soft),
+      box-shadow 0.2s var(--ease-out-soft);
+  }
+  .field:focus {
+    outline: none;
+    border-color: color-mix(in oklab, var(--color-glow) 65%, var(--color-line));
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-glow) 18%, transparent);
+  }
+  .field[aria-invalid="true"] {
+    border-color: var(--color-danger);
+  }
+}
+
+@layer utilities {
+  /*
+   * Staggered page-load reveal. Set --d per element.
+   *
+   * `backwards` (not `both`) on purpose: the resting state of a .reveal
+   * element is fully visible, and the animation only borrows it during
+   * the delay. So if animations never run at all — a reduced-motion
+   * setting, a screenshot renderer, an old engine — the content is still
+   * there rather than stuck at opacity 0.
+   */
+  .reveal {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: reveal 0.85s var(--ease-out-soft) backwards;
+      animation-delay: var(--d, 0ms);
+    }
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes lamp-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+@keyframes drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* ==========================================================================
+   Leaflet — re-skinned for the dark ground
+   ========================================================================== */
+
 .leaflet-container {
-  font-family: inherit;
+  font-family: var(--font-body);
+  background: var(--map-ground);
+}
+
+.leaflet-container a {
+  color: var(--color-glow);
+}
+
+/*
+ * The night map. Standard OpenStreetMap tiles are light, so the tile pane
+ * alone is inverted and re-hued — land goes to deep slate, water to a
+ * cold navy. Only `.leaflet-tile-pane` is filtered, so markers, popups and
+ * controls keep their real colours.
+ */
+.leaflet-container .leaflet-tile-pane {
+  filter: var(--tile-filter);
+}
+
+/* Markers: a coloured lamp with a halo. The colour arrives as --c from the
+   divIcon markup so one rule covers every category. */
+.leaflet-container .km-marker {
+  background: none !important;
+  border: none !important;
+}
+
+.km-dot {
+  position: relative;
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--c, #ffb347);
+  box-shadow:
+    0 0 0 2px color-mix(in oklab, var(--c, #ffb347) 30%, transparent),
+    0 0 14px 3px color-mix(in oklab, var(--c, #ffb347) 60%, transparent);
+  transition: transform 0.25s var(--ease-out-soft);
+}
+
+.km-dot::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 999px;
+  border: 2px solid var(--c, #ffb347);
+  animation: lamp-pulse 3.2s ease-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+/* Only the freshest pins keep pulsing, so a busy map stays readable. */
+.km-dot:not(.km-dot--fresh)::after {
+  animation: none;
+  opacity: 0;
+}
+
+.leaflet-marker-icon:hover .km-dot {
+  transform: scale(1.35);
+}
+
+.leaflet-container .leaflet-popup-content-wrapper {
+  background: var(--color-ink-2);
+  color: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px -20px rgb(0 0 0 / 0.85);
+}
+
+.leaflet-container .leaflet-popup-content {
+  margin: 0.9rem 1rem;
+  line-height: 1.5;
+}
+
+.leaflet-container .leaflet-popup-tip {
+  background: var(--color-ink-2);
+  border: 1px solid var(--color-line);
+}
+
+.leaflet-container a.leaflet-popup-close-button {
+  color: var(--color-paper-faint);
+  padding: 6px 7px 0 0;
+}
+.leaflet-container a.leaflet-popup-close-button:hover {
+  color: var(--color-paper);
+  background: transparent;
+}
+
+.leaflet-container .leaflet-control-zoom {
+  border: 1px solid var(--color-line) !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  box-shadow: 0 10px 30px -12px rgb(0 0 0 / 0.9) !important;
+}
+
+.leaflet-container .leaflet-control-zoom a,
+.leaflet-container .leaflet-control-zoom a:hover {
+  background: var(--color-ink-2);
+  color: var(--color-paper-dim);
+  border-bottom-color: var(--color-line);
+}
+
+.leaflet-container .leaflet-control-zoom a:hover {
+  color: var(--color-glow);
+  background: var(--color-ink-3);
+}
+
+/* Leaflet greys out a disabled zoom button with its own colour. */
+.leaflet-container .leaflet-control-zoom a.leaflet-disabled {
+  background: var(--color-ink-2);
+  color: var(--color-paper-faint);
+  opacity: 0.5;
+}
+
+.leaflet-container .leaflet-control-attribution {
+  background: color-mix(in oklab, var(--color-ink) 92%, transparent) !important;
+  color: var(--color-paper-faint) !important;
+  font-size: 10px !important;
+  border-top-left-radius: 8px;
+}
+
+.leaflet-container .leaflet-control-attribution a {
+  color: var(--color-paper-dim) !important;
+}
+
+/* ==========================================================================
+   Respect people who'd rather things held still
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
